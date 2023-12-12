@@ -206,14 +206,15 @@ func aggregateUserReports(geoip *geoip2.Reader, date time.Time, reps []contract.
 	var numCPU []int
 
 	// Handle each report.
+	fmt.Println(len(reps))
 	for _, rep := range reps {
-		println("aggregating report")
-		log.Printf("Aggregating: %s\n\n\n", rep.UniqueID)
 		if geoip != nil && rep.Address != "" {
 			if addr, err := net.ResolveTCPAddr("tcp", net.JoinHostPort(rep.Address, "0")); err == nil {
 				city, err := geoip.City(addr.IP)
 				if err == nil {
+					fmt.Println(locations)
 					locations.Add(city.Location.Latitude, city.Location.Longitude)
+					fmt.Println(locations)
 					country := city.Country.Names["en"]
 					if country == "" {
 						country = "Unkown"

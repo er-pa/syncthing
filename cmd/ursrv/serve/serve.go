@@ -22,7 +22,6 @@ import (
 	"sync"
 	"time"
 
-	_ "github.com/lib/pq" // PostgreSQL driver
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/syncthing/syncthing/cmd/ursrv/blob"
@@ -46,7 +45,7 @@ var (
 	blocksToGb       = float64(8 * 1024)
 )
 
-// Functions used in the GUI (index.html)
+// Functions used in index.html
 var funcs = map[string]interface{}{
 	"commatize":  commatize,
 	"number":     number,
@@ -96,9 +95,9 @@ func (cli *CLI) Run(store *blob.UrsrvStore) error {
 		store:             store,
 		debug:             cli.Debug,
 		geoIPPath:         cli.GeoIPPath,
+		cachedSummary:     newSummary(),
 		cachedBlockstats:  newBlockStats(),
 		cachedPerformance: newPerformance(),
-		cachedSummary:     newSummary(),
 	}
 	http.HandleFunc("/", srv.rootHandler)
 	http.HandleFunc("/newdata", srv.newDataHandler)
@@ -126,13 +125,12 @@ type server struct {
 	cacheMut           sync.Mutex
 	cachedLatestReport report.AggregatedReport
 	cachedSummary      summary
-	cachedPerformance  [][]interface{}
 	cachedBlockstats   [][]interface{}
+	cachedPerformance  [][]interface{}
 	cacheTime          time.Time
 }
 
-// TESTING VALUE
-const maxCacheTime = 2 * time.Minute
+const maxCacheTime = 15 * time.Minute
 
 func (s *server) cacheRefresher() {
 	ticker := time.NewTicker(maxCacheTime - time.Minute)
@@ -152,7 +150,6 @@ func (s *server) refreshCacheLocked() error {
 		return err
 	}
 
-	s.cachedLatestReport = rep
 	var reportsToCache []report.AggregatedReport
 	if s.cachedLatestReport.Date.IsZero() {
 		reportsToCache, err = s.store.ListAggregatedReports()
@@ -167,6 +164,7 @@ func (s *server) refreshCacheLocked() error {
 		s.cacheGraphData(reportsToCache)
 	}
 
+	s.cachedLatestReport = rep
 	s.cacheTime = time.Now()
 
 	return nil
@@ -296,6 +294,7 @@ func (s *server) summaryHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+
 	s.cachedSummary.filter(min)
 	summary, _ := s.cachedSummary.MarshalJSON()
 	w.Write(summary)

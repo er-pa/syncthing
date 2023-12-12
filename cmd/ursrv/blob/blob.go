@@ -30,7 +30,6 @@ func NewBlobStorage() Store {
 	}
 
 	dir = filepath.Join(dir, ".ursrv", "blob")
-	log.Println("Using local blob storage", "dir", dir)
 
 	return NewDisk(dir)
 }
@@ -61,7 +60,7 @@ func aggregatedReportKey(when time.Time) string {
 func (m *UrsrvStore) PutUsageReport(rep contract.Report, received time.Time) error {
 	key := usageReportKey(received, rep.UniqueID)
 
-	// Check if we already have a report for this instance from today.
+	// Check if we already have a report for this instance today.
 	if data, err := m.Get(key); err == nil && len(data) != 0 {
 		return errors.New("already exists")
 	}
@@ -120,7 +119,7 @@ func (m *UrsrvStore) ListAggregatedReports() ([]report.AggregatedReport, error) 
 func (m *UrsrvStore) LastAggregatedReport() (report.AggregatedReport, error) {
 	var rep report.AggregatedReport
 
-	date := time.Now().UTC().AddDate(0, 0, -1)
+	date := time.Now().UTC().AddDate(0, 0, -2) // adjust
 	key := aggregatedReportKey(date)
 	data, err := m.Store.Get(key)
 	if err != nil {

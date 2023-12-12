@@ -116,7 +116,7 @@ func (lm *LocationMap) Add(lat, lon float64) {
 }
 
 func (lm *LocationMap) WeightedLocations() []Location {
-	locations := make([]Location, len(lm.mapped))
+	var locations []Location
 	for _, location := range lm.mapped {
 		locations = append(locations, location)
 	}
