@@ -336,31 +336,40 @@ func (s *server) blockStatsHandler(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (s *server) cacheGraphData(reports []report.AggregatedReport) {
-	log.Printf("caching %d", len(reports))
 	for _, rep := range reports {
 		date := rep.Date.UTC().Format(time.DateOnly)
 
 		s.cachedSummary.setCount(date, rep.VersionCount)
-		s.cachedBlockstats = append(s.cachedBlockstats, []interface{}{
-			date,
-			rep.BlockStats.Total,
-			rep.BlockStats.Pulled / blocksToGb,
-			rep.BlockStats.Renamed / blocksToGb,
-			rep.BlockStats.Reused / blocksToGb,
-			rep.BlockStats.CopyOrigin / blocksToGb,
-			rep.BlockStats.CopyOriginShifted / blocksToGb,
-			rep.BlockStats.CopyElsewhere / blocksToGb,
-		})
+		if blockStats := parseBlockStats(date, rep.Nodes, rep.BlockStats); blockStats != nil {
+			s.cachedBlockstats = append(s.cachedBlockstats, blockStats)
+		}
 		s.cachedPerformance = append(s.cachedPerformance, []interface{}{
 			date, rep.Performance.TotFiles, rep.Performance.TotMib, float64(int(rep.Performance.Sha256Perf*10)) / 10, rep.Performance.MemorySize, rep.Performance.MemoryUsageMib,
 		})
-
 	}
 }
 
 func newBlockStats() [][]interface{} {
 	return [][]interface{}{
 		{"Day", "Number of Reports", "Transferred (GiB)", "Saved by renaming files (GiB)", "Saved by resuming transfer (GiB)", "Saved by reusing data from old file (GiB)", "Saved by reusing shifted data from old file (GiB)", "Saved by reusing data from other files (GiB)"},
+	}
+}
+
+func parseBlockStats(date string, reports int, blockStats report.BlockStats) []interface{} {
+	// Legacy bad data on certain days
+	if reports <= 0 || !blockStats.Valid() {
+		return nil
+	}
+
+	return []interface{}{
+		date,
+		reports,
+		blockStats.Pulled / blocksToGb,
+		blockStats.Renamed / blocksToGb,
+		blockStats.Reused / blocksToGb,
+		blockStats.CopyOrigin / blocksToGb,
+		blockStats.CopyOriginShifted / blocksToGb,
+		blockStats.CopyElsewhere / blocksToGb,
 	}
 }
 

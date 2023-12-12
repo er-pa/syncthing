@@ -8,7 +8,6 @@ package aggregate
 
 import (
 	"database/sql"
-	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -68,29 +67,33 @@ type distributionMatch struct {
 type CLI struct {
 	DBConn    string `env:"UR_DB_URL" default:"postgres://user:password@localhost/ur?sslmode=disable"`
 	GeoIPPath string `env:"UR_GEOIP" default:"GeoLite2-City.mmdb"`
-	Migrate   bool   `env:"UR_MIGRATE"` // Temporary, migrate support.
+	Migrate   bool   `env:"UR_MIGRATE"` // Migration support (to be removed post-migration).
 }
 
 func (cli *CLI) Run(store *blob.UrsrvStore) error {
 	log.SetFlags(log.Ltime | log.Ldate)
 	log.SetOutput(os.Stdout)
 
-	// Deprecated, used to migrate.
+	// Deprecated (remove post-migration).
 	db, err := sql.Open("postgres", cli.DBConn)
 	if err != nil {
 		return fmt.Errorf("database: %w", err)
 	}
 
-	// Temporary, migrate support.
+	// Migration support (to be removed post-migration).
 	if cli.Migrate {
+		log.Println("Starting migration")
 		if err := runMigration(db, store, cli.GeoIPPath); err != nil {
 			log.Println("Migration:", err)
 		}
+		log.Println("Migration complete")
+
+		// Skip the regular aggregation.
+		return nil
 	}
 
 	for {
-		aggregateDate := time.Now().UTC().AddDate(0, 0, -1) // Yesterday
-		runAggregation(db, store, cli.GeoIPPath, aggregateDate)
+		runAggregation(db, store, cli.GeoIPPath, time.Now().UTC().AddDate(0, 0, -1))
 
 		// Sleep until one minute past next midnight
 		sleepUntilNext(24*time.Hour, 1*time.Minute)
@@ -143,13 +146,14 @@ func runAggregation(db *sql.DB, store *blob.UrsrvStore, geoIPPath string, aggreg
 }
 
 func aggregateUserReports(geoip *geoip2.Reader, date time.Time, reps []contract.Report) (*report.AggregatedReport, error) {
-	// Initialize the aggregation report.
+	// Initialize the report.
 	ar := &report.AggregatedReport{
 		Date:        date.UTC(),
 		Performance: report.Performance{},
 		BlockStats:  report.BlockStats{},
 	}
 
+	// Initialize variables which are used as a mediator.
 	nodes := 0
 	countriesTotal := 0
 	var versions []string
@@ -201,7 +205,7 @@ func aggregateUserReports(geoip *geoip2.Reader, date time.Time, reps []contract.
 
 	var numCPU []int
 
-	// Handle the relevant files.
+	// Handle each report.
 	for _, rep := range reps {
 		println("aggregating report")
 		log.Printf("Aggregating: %s\n\n\n", rep.UniqueID)
@@ -544,7 +548,7 @@ func aggregateUserReports(geoip *geoip2.Reader, date time.Time, reps []contract.
 	return ar, nil
 }
 
-// Migration support, to be removed post-migration.
+// Migration support (to be removed post-migration).
 func runMigration(db *sql.DB, store *blob.UrsrvStore, geoIPPath string) error {
 	geoip, err := geoip2.Open(geoIPPath)
 	if err != nil {
@@ -555,43 +559,54 @@ func runMigration(db *sql.DB, store *blob.UrsrvStore, geoIPPath string) error {
 	}
 
 	var t time.Time
-	row := db.QueryRow("SELECT MIN(DATE_TRUNC('day', Received)) FROM ReportsJson")
+
+	// Start from the oldest date.
+	row := db.QueryRow("SELECT MIN(Received) FROM ReportsJson")
 	err = row.Scan(&t)
 	if err != nil {
-		return errors.New("pq: retrieving oldest date")
+		return err
 	}
 
 	for t.Before(time.Now()) {
+		// Obtain the reports for the given date from the db.
 		reports, err := reportsFromDB(db, t)
 		if err != nil {
+			log.Println(err)
 			t = t.AddDate(0, 0, 1)
 			continue
 		}
 
+		// Aggregate the reports for the given date.
 		aggregated, err := aggregateUserReports(geoip, t, reports)
 		if err != nil {
 			log.Println("migrate aggregation failed", t, err)
 		}
+
+		// Store the aggregated report in the new storage location.
 		err = store.PutAggregatedReport(aggregated)
 		if err != nil {
 			log.Println("migrate aggregated report failed", t, err)
 		}
 
+		// Continue to the next day.
 		t = t.AddDate(0, 0, 1)
 	}
 
 	return nil
 }
 
-// Migration support, to be removed post-migration.
+// Migration support (to be removed post-migration).
 func reportsFromDB(db *sql.DB, date time.Time) ([]contract.Report, error) {
 	var reports []contract.Report
+
+	// Select all the rows where the received day is equal to the given timestamp's day.
 	rows, err := db.Query(`
-	SELECT Received, Report FROM ReportsJson WHERE DATE_TRUNC('day', Received) = DATE_TRUNC('day', DATE '$1')`, date)
+	SELECT Received, Report FROM ReportsJson WHERE DATE_TRUNC('day', Received) = DATE_TRUNC('day', $1::timestamp)`, date)
 	if err != nil {
 		return reports, err
 	}
 
+	// Parse the row-data and append it to a slice.
 	var rep contract.Report
 	for rows.Next() {
 		err := rows.Scan(&rep.Received, &rep)

@@ -83,6 +83,10 @@ type BlockStats struct {
 	CopyElsewhere     float64 `json:"copyElsewhere"`
 }
 
+func (b *BlockStats) Valid() bool {
+	return b.Pulled >= 0 && b.Renamed >= 0 && b.Reused >= 0 && b.CopyOrigin >= 0 && b.CopyOriginShifted >= 0 && b.CopyElsewhere >= 0
+}
+
 type NumberType int
 
 const (
