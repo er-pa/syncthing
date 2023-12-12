@@ -70,7 +70,7 @@ type CLI struct {
 	Migrate   bool   `env:"UR_MIGRATE"` // Migration support (to be removed post-migration).
 }
 
-func (cli *CLI) Run(store *blob.UrsrvStore) error {
+func (cli *CLI) Run() error {
 	log.SetFlags(log.Ltime | log.Ldate)
 	log.SetOutput(os.Stdout)
 
@@ -80,11 +80,16 @@ func (cli *CLI) Run(store *blob.UrsrvStore) error {
 		return fmt.Errorf("database: %w", err)
 	}
 
+	// Initialize the storage and store.
+	b := blob.NewBlobStorage()
+	store := blob.NewUrsrvStore(b)
+
 	// Migration support (to be removed post-migration).
 	if cli.Migrate {
 		log.Println("Starting migration")
 		if err := runMigration(db, store, cli.GeoIPPath); err != nil {
-			log.Println("Migration:", err)
+			log.Println("Migration failed:", err)
+			return err
 		}
 		log.Println("Migration complete")
 

@@ -42,7 +42,7 @@ var (
 	tpl     *template.Template
 )
 
-func (cli *CLI) Run(store *blob.UrsrvStore) error {
+func (cli *CLI) Run() error {
 	// Template
 	fd, err := statics.Open("static/index.html")
 	if err != nil {
@@ -54,6 +54,10 @@ func (cli *CLI) Run(store *blob.UrsrvStore) error {
 	}
 	fd.Close()
 	tpl = template.Must(template.New("index.html").Funcs(funcs).Parse(string(bs)))
+
+	// Initialize the storage and store.
+	b := blob.NewBlobStorage()
+	store := blob.NewUrsrvStore(b)
 
 	// Listening
 	listener, err := net.Listen("tcp", cli.Listen)
@@ -207,7 +211,7 @@ func (s *server) newDataHandler(w http.ResponseWriter, r *http.Request) {
 
 	var rep contract.Report
 	received := time.Now().UTC()
-	rep.Date = received.Format(time.DateOnly)
+	rep.Date = received.Format("20060102")
 	rep.Address = addr
 
 	lr := &io.LimitedReader{R: r.Body, N: 40 * 1024}

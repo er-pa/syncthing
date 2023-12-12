@@ -12,7 +12,6 @@ import (
 
 	"github.com/alecthomas/kong"
 	"github.com/syncthing/syncthing/cmd/ursrv/aggregate"
-	"github.com/syncthing/syncthing/cmd/ursrv/blob"
 	"github.com/syncthing/syncthing/cmd/ursrv/serve"
 )
 
@@ -25,14 +24,9 @@ func main() {
 	log.SetFlags(log.Ltime | log.Ldate | log.Lshortfile)
 	log.SetOutput(os.Stdout)
 
-	// Initialize the blob storage used to store the temporary usage reports and
-	// the persistent aggregated reports.
-	b := blob.NewBlobStorage()
-	store := blob.NewUrsrvStore(b)
-
 	var cli CLI
 	ctx := kong.Parse(&cli)
-	if err := ctx.Run(store); err != nil {
+	if err := ctx.Run(); err != nil {
 		log.Fatalf("%s: %v", ctx.Command(), err)
 	}
 }
