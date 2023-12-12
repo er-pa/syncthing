@@ -50,11 +50,11 @@ func NewUrsrvStore(s Store) *UrsrvStore {
 }
 
 func usageReportKey(when time.Time, uniqueId string) string {
-	return fmt.Sprintf("%s~%s-%s", USAGE_PREFIX, when.Format(time.DateOnly), uniqueId)
+	return fmt.Sprintf("%s/%s-%s", USAGE_PREFIX, when.Format(time.DateOnly), uniqueId)
 }
 
 func aggregatedReportKey(when time.Time) string {
-	return fmt.Sprintf("%s~%s", AGGREGATED_PREFIX, when.Format(time.DateOnly))
+	return fmt.Sprintf("%s/%s", AGGREGATED_PREFIX, when.Format(time.DateOnly))
 }
 
 func (m *UrsrvStore) PutUsageReport(rep contract.Report, received time.Time) error {
@@ -119,7 +119,7 @@ func (m *UrsrvStore) ListAggregatedReports() ([]report.AggregatedReport, error) 
 func (m *UrsrvStore) LastAggregatedReport() (report.AggregatedReport, error) {
 	var rep report.AggregatedReport
 
-	date := time.Now().UTC().AddDate(0, 0, -2) // adjust
+	date := time.Now().UTC().AddDate(0, 0, -1)
 	key := aggregatedReportKey(date)
 	data, err := m.Store.Get(key)
 	if err != nil {
