@@ -18,9 +18,14 @@ const (
 	AGGREGATED_PREFIX = "AR" // report.AggregatedReport
 )
 
-func NewBlobStorage() Store {
-	// Some blob storage.
-	// return blob.NewAzure()/NewS3()/...
+func NewBlobStorage(config S3Config) Store {
+	// If a S3-compatible credentials are provided, use those.
+	if config.isSet() {
+		s3, err := NewS3(config)
+		if err == nil {
+			return s3
+		}
+	}
 
 	// Fall back on local storage.
 	dir, err := os.UserHomeDir()
