@@ -18,16 +18,16 @@ const (
 	AGGREGATED_PREFIX = "AR" // report.AggregatedReport
 )
 
-func NewBlobStorage(config S3Config) Store {
-	// If a S3-compatible credentials are provided, use those.
-	if config.isSet() {
-		s3, err := NewS3(config)
+func NewBlobStorage(s3Config S3Config) Store {
+	// If S3-compatible credentials are provided, use those.
+	if s3Config.isSet() {
+		s3, err := NewS3(s3Config)
 		if err == nil {
 			return s3
 		}
 	}
 
-	// Fall back on local storage.
+	// Fall back to local storage.
 	dir, err := os.UserHomeDir()
 	if err != nil {
 		log.Println("Could not get user home directory", "error", err)
