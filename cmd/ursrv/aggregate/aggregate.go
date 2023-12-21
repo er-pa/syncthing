@@ -570,7 +570,8 @@ func runMigration(db *sql.DB, store *blob.UrsrvStore, geoIPPath string) error {
 		return err
 	}
 
-	for t.Before(time.Now().AddDate(0, 0, -1)) {
+	cutoff := time.Now()
+	for t.Before(cutoff) {
 		// Obtain the reports for the given date from the db.
 		reports, err := reportsFromDB(db, t)
 		if err != nil {
