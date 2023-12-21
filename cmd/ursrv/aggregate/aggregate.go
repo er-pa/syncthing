@@ -563,15 +563,19 @@ func runMigration(db *sql.DB, store *blob.UrsrvStore, geoIPPath string) error {
 
 	var t time.Time
 
-	// Start from the oldest date.
+	// Select the oldest date.
 	row := db.QueryRow("SELECT MIN(Received) FROM ReportsJson")
 	err = row.Scan(&t)
 	if err != nil {
 		return err
 	}
 
-	cutoff := time.Now()
-	for t.Before(cutoff) {
+	// Obtain todays timestamp with the time specific values being unset.
+	today, _ := time.Parse(time.DateOnly, time.Now().UTC().Format(time.DateOnly))
+
+	// Aggregate the reports of all the days prior to today, as all the usage
+	// reports for those days should be put in the db already.
+	for t.Before(today) {
 		// Obtain the reports for the given date from the db.
 		reports, err := reportsFromDB(db, t)
 		if err != nil {
@@ -580,7 +584,7 @@ func runMigration(db *sql.DB, store *blob.UrsrvStore, geoIPPath string) error {
 			continue
 		}
 
-		// Aggregate the reports for the given date.
+		// Aggregate the reports.
 		aggregated, err := aggregateUserReports(geoip, t, reports)
 		if err != nil {
 			log.Println("migrate aggregation failed", t, err)
@@ -594,6 +598,22 @@ func runMigration(db *sql.DB, store *blob.UrsrvStore, geoIPPath string) error {
 
 		// Continue to the next day.
 		t = t.AddDate(0, 0, 1)
+	}
+
+	// Store the usage reports of today in the new store.
+	reports, err := reportsFromDB(db, today)
+	if err != nil {
+		log.Println(err)
+		return err
+	}
+	for _, rep := range reports {
+		if err := store.PutUsageReport(rep, today); err != nil {
+			if err.Error() == "already exists" {
+				continue
+			}
+			// This isn't supposed to happen.
+			return err
+		}
 	}
 
 	return nil

@@ -1,6 +1,7 @@
 package blob
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -41,10 +42,10 @@ func NewBlobStorage(s3Config S3Config) Store {
 }
 
 type Store interface {
-	Put(key string, data []byte) error
-	Get(key string) ([]byte, error)
-	Delete(key string) error
-	Iterate(key string, fn func([]byte) bool) error
+	Put(_ string, _ []byte) error
+	Get(_ string) ([]byte, error)
+	Delete(_ string) error
+	Iterate(_ context.Context, _ string, _ func([]byte) bool) error
 }
 
 type UrsrvStore struct {
@@ -88,13 +89,14 @@ func (m *UrsrvStore) PutAggregatedReport(rep *report.AggregatedReport) error {
 }
 
 func (m *UrsrvStore) ListUsageReportsForDate(when time.Time) ([]contract.Report, error) {
+	ctx := context.Background()
 	key := usageReportKey(when, "")
 	key, _ = strings.CutSuffix(key, ".json")
 
 	var res []contract.Report
 	var rep contract.Report
 
-	err := m.Store.Iterate(key, func(b []byte) bool {
+	err := m.Store.Iterate(ctx, key, func(b []byte) bool {
 		err := json.Unmarshal(b, &rep)
 		if err != nil {
 			return true
@@ -107,11 +109,12 @@ func (m *UrsrvStore) ListUsageReportsForDate(when time.Time) ([]contract.Report,
 }
 
 func (m *UrsrvStore) ListAggregatedReports() ([]report.AggregatedReport, error) {
+	ctx := context.Background()
 	key := AGGREGATED_PREFIX
 
 	var res []report.AggregatedReport
 	var rep report.AggregatedReport
-	err := m.Store.Iterate(key, func(b []byte) bool {
+	err := m.Store.Iterate(ctx, key, func(b []byte) bool {
 		err := json.Unmarshal(b, &rep)
 		if err != nil {
 			return true

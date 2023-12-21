@@ -1,6 +1,7 @@
 package blob
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 )
@@ -31,7 +32,7 @@ func (a *Disk) Delete(key string) error {
 	return os.Remove(path)
 }
 
-func (a *Disk) Iterate(key string, fn func([]byte) bool) error {
+func (a *Disk) Iterate(_ context.Context, key string, fn func([]byte) bool) error {
 	matches, err := filepath.Glob(filepath.Join(a.path, key+"*"))
 	if err != nil {
 		return err

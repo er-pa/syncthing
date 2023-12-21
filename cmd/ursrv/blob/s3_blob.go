@@ -2,6 +2,7 @@ package blob
 
 import (
 	"bytes"
+	"context"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -83,24 +84,42 @@ func (s *S3) Delete(key string) error {
 	return err
 }
 
-func (s *S3) Iterate(key string, fn func([]byte) bool) error {
-	// Obtain the list of objects with a certain prefix.
-	resp, err := s.client.ListObjectsV2(&s3.ListObjectsV2Input{Bucket: &s.bucket, Prefix: aws.String(key)})
+func (s *S3) Iterate(ctx context.Context, prefix string, fn func([]byte) bool) error {
+	// Obtain a list of objects based on a prefix.
+	resp, err := s.client.ListObjectsV2(&s3.ListObjectsV2Input{Bucket: &s.bucket, Prefix: aws.String(prefix)})
 	if err != nil {
 		return err
 	}
 
-	// Download the actual content of each obtained object.
+	// Convert the objects to a BatchDownloadObject.
+	batch := []s3manager.BatchDownloadObject{}
 	for _, item := range resp.Contents {
-		b, err := s.Get(*item.Key)
-		if err != nil {
+		batch = append(batch, s3manager.BatchDownloadObject{
+			Object: &s3.GetObjectInput{
+				Bucket: aws.String(s.bucket),
+				Key:    aws.String(*item.Key),
+			},
+			Writer: aws.NewWriteAtBuffer([]byte{}),
+		})
+	}
+
+	// Download the requested items in a batch.
+	downloadManager := s3manager.NewDownloaderWithClient(s.client)
+	err = downloadManager.DownloadWithIterator(ctx, &s3manager.DownloadObjectsIterator{Objects: batch})
+	if err != nil {
+		return err
+	}
+
+	for _, item := range batch {
+		// Read the item's buffer.
+		b, ok := item.Writer.(*aws.WriteAtBuffer)
+		if !ok {
 			continue
 		}
 
-		if !fn(b) {
+		if !fn(b.Bytes()) {
 			break
 		}
-
 	}
 	return nil
 }
