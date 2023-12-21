@@ -65,17 +65,12 @@ type distributionMatch struct {
 }
 
 type CLI struct {
-	DBConn      string `env:"UR_DB_URL" default:"postgres://user:password@localhost/ur?sslmode=disable"`
-	GeoIPPath   string `env:"UR_GEOIP" default:"GeoLite2-City.mmdb"`
-	S3Bucket    string `env:"S3_BUCKET"`
-	S3Endpoint  string `env:"S3_ENDPOINT"`
-	S3Region    string `env:"S3_REGION" default:"eu-west-3"`
-	S3AccessKey string `env:"S3_ACCESS_KEY"`
-	S3SecretKey string `env:"S3_SECRET_KEY"`
-	Migrate     bool   `env:"UR_MIGRATE"` // Migration support (to be removed post-migration).
+	DBConn    string `env:"UR_DB_URL" default:"postgres://user:password@localhost/ur?sslmode=disable"`
+	GeoIPPath string `env:"UR_GEOIP" default:"GeoLite2-City.mmdb"`
+	Migrate   bool   `env:"UR_MIGRATE"` // Migration support (to be removed post-migration).
 }
 
-func (cli *CLI) Run() error {
+func (cli *CLI) Run(s3Config blob.S3Config) error {
 	log.SetFlags(log.Ltime | log.Ldate)
 	log.SetOutput(os.Stdout)
 
@@ -86,13 +81,6 @@ func (cli *CLI) Run() error {
 	}
 
 	// Initialize the storage and store.
-	s3Config := blob.S3Config{
-		Bucket:    cli.S3Bucket,
-		Endpoint:  cli.S3Endpoint,
-		Region:    cli.S3Region,
-		AccessKey: cli.S3AccessKey,
-		SecretKey: cli.S3SecretKey,
-	}
 	b := blob.NewBlobStorage(s3Config)
 	store := blob.NewUrsrvStore(b)
 

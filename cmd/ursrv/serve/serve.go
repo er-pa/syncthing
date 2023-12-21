@@ -29,14 +29,8 @@ import (
 )
 
 type CLI struct {
-	Debug       bool   `env:"UR_DEBUG"`
-	Listen      string `env:"UR_LISTEN" default:"0.0.0.0:8080"`
-	GeoIPPath   string `env:"UR_GEOIP" default:"GeoLite2-City.mmdb"`
-	S3Bucket    string `env:"S3_BUCKET"`
-	S3Endpoint  string `env:"S3_ENDPOINT"`
-	S3Region    string `env:"S3_REGION" default:"eu-west-3"`
-	S3AccessKey string `env:"S3_ACCESS_KEY"`
-	S3SecretKey string `env:"S3_SECRET_KEY"`
+	Debug  bool   `env:"UR_DEBUG"`
+	Listen string `env:"UR_LISTEN" default:"0.0.0.0:8080"`
 }
 
 const maxCacheTime = 15 * time.Minute
@@ -47,7 +41,7 @@ var (
 	tpl     *template.Template
 )
 
-func (cli *CLI) Run() error {
+func (cli *CLI) Run(s3Config blob.S3Config) error {
 	// Template
 	fd, err := statics.Open("static/index.html")
 	if err != nil {
@@ -61,13 +55,6 @@ func (cli *CLI) Run() error {
 	tpl = template.Must(template.New("index.html").Funcs(funcs).Parse(string(bs)))
 
 	// Initialize the storage and store.
-	s3Config := blob.S3Config{
-		Bucket:    cli.S3Bucket,
-		Endpoint:  cli.S3Endpoint,
-		Region:    cli.S3Region,
-		AccessKey: cli.S3AccessKey,
-		SecretKey: cli.S3SecretKey,
-	}
 	b := blob.NewBlobStorage(s3Config)
 	store := blob.NewUrsrvStore(b)
 
@@ -80,7 +67,6 @@ func (cli *CLI) Run() error {
 	srv := &server{
 		store:             store,
 		debug:             cli.Debug,
-		geoIPPath:         cli.GeoIPPath,
 		cachedSummary:     newSummary(),
 		cachedBlockstats:  newBlockStats(),
 		cachedPerformance: newPerformance(),
@@ -104,9 +90,8 @@ func (cli *CLI) Run() error {
 }
 
 type server struct {
-	debug     bool
-	geoIPPath string
-	store     *blob.UrsrvStore
+	debug bool
+	store *blob.UrsrvStore
 
 	cacheMut           sync.Mutex
 	cachedLatestReport report.AggregatedReport

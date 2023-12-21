@@ -31,7 +31,7 @@ type S3 struct {
 func NewS3(config S3Config) (*S3, error) {
 	s3Config := &aws.Config{
 		Credentials:      credentials.NewStaticCredentials(config.AccessKey, config.SecretKey, ""),
-		Endpoint:         aws.String(fmt.Sprintf("https://%s.%s", config.Bucket, config.Endpoint)),
+		Endpoint:         aws.String(fmt.Sprintf("https://%s", config.Endpoint)),
 		Region:           aws.String(config.Region),
 		S3ForcePathStyle: aws.Bool(false),
 	}
