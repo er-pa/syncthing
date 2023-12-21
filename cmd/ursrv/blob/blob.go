@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/syncthing/syncthing/cmd/ursrv/report"
@@ -55,11 +56,11 @@ func NewUrsrvStore(s Store) *UrsrvStore {
 }
 
 func usageReportKey(when time.Time, uniqueId string) string {
-	return fmt.Sprintf("%s/%s-%s", USAGE_PREFIX, when.Format(time.DateOnly), uniqueId)
+	return fmt.Sprintf("%s/%s-%s.json", USAGE_PREFIX, when.UTC().Format("20060102"), uniqueId)
 }
 
 func aggregatedReportKey(when time.Time) string {
-	return fmt.Sprintf("%s/%s", AGGREGATED_PREFIX, when.Format(time.DateOnly))
+	return fmt.Sprintf("%s/%s.json", AGGREGATED_PREFIX, when.UTC().Format("20060102"))
 }
 
 func (m *UrsrvStore) PutUsageReport(rep contract.Report, received time.Time) error {
@@ -88,6 +89,7 @@ func (m *UrsrvStore) PutAggregatedReport(rep *report.AggregatedReport) error {
 
 func (m *UrsrvStore) ListUsageReportsForDate(when time.Time) ([]contract.Report, error) {
 	key := usageReportKey(when, "")
+	key, _ = strings.CutSuffix(key, ".json")
 
 	var res []contract.Report
 	var rep contract.Report
