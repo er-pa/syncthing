@@ -129,6 +129,8 @@ func (m *UrsrvStore) ListAggregatedReports() ([]report.AggregatedReport, error) 
 func (m *UrsrvStore) LastAggregatedReport() (report.AggregatedReport, error) {
 	var rep report.AggregatedReport
 
+	// Requires an aggregated report of the day before, which in practise should
+	// always be the case.
 	date := time.Now().UTC().AddDate(0, 0, -1)
 	key := aggregatedReportKey(date)
 	data, err := m.Store.Get(key)
