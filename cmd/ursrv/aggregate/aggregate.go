@@ -638,6 +638,9 @@ func reportsFromDB(db *sql.DB, date time.Time) ([]contract.Report, error) {
 			log.Println("sql:", err)
 			continue
 		}
+		if err = rep.Validate(); err != nil {
+			continue
+		}
 		reports = append(reports, rep)
 	}
 
